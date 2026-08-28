@@ -2,6 +2,7 @@ from pathlib import Path
 
 from progress import configure_logging
 from settings import load_settings
+from terminal_ui import RetroTerminal
 from transcriber import run_transcriber
 from youtube_downloader import run_downloader
 from youtube_transcriber import run_youtube_transcriber
@@ -30,14 +31,13 @@ def run_menu(
     downloader_action=run_downloader,
     transcriber_action=run_transcriber,
     combined_action=run_youtube_transcriber,
+    pause_fn=None,
+    ui=None,
 ) -> int:
+    ui = ui or RetroTerminal(print_fn)
     while True:
-        print_fn("\n=== Ferramentas de Mídia ===")
-        print_fn("1 - Baixar vídeo ou áudio do YouTube")
-        print_fn("2 - Transcrever arquivo de áudio ou vídeo")
-        print_fn("3 - Baixar do YouTube e transcrever")
-        print_fn("0 - Sair")
-        choice = input_fn("Escolha uma opção: ").strip()
+        ui.show_menu()
+        choice = input_fn("  Escolha uma opção > ").strip()
 
         if choice == "1":
             downloader_action()
@@ -46,10 +46,14 @@ def run_menu(
         elif choice == "3":
             combined_action()
         elif choice == "0":
-            print_fn("Até mais!")
+            ui.status("success", "Até mais!")
             return 0
         else:
-            print_fn("Opção inválida. Escolha 1, 2, 3 ou 0.")
+            ui.status("error", "Opção inválida. Escolha 1, 2, 3 ou 0.")
+            continue
+
+        if pause_fn is not None:
+            pause_fn("Pressione ENTER para voltar ao menu...")
 
 
 def run_app(
@@ -59,20 +63,23 @@ def run_app(
     menu_runner=run_menu,
 ) -> int:
     root = root or Path(__file__).resolve().parent
+    ui = RetroTerminal(print_fn)
     try:
         settings = settings_loader(root / "config.json")
     except ValueError as exc:
-        print_fn(f"Erro de configuração: {exc}")
+        ui.status("error", f"Erro de configuração: {exc}")
         return 1
 
     downloader_action, transcriber_action, combined_action = build_actions(
-        settings, root, print_fn
+        settings, root, ui.output
     )
     return menu_runner(
-        print_fn=print_fn,
+        print_fn=ui.print_fn,
         downloader_action=downloader_action,
         transcriber_action=transcriber_action,
         combined_action=combined_action,
+        pause_fn=input,
+        ui=ui,
     )
 
 

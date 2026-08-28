@@ -24,7 +24,9 @@ class DownloadProgress:
             return
         self._last_percent = integer_percent
 
-        message = f"Baixando: {percent or 'em andamento'}"
+        completed = max(0, min(20, (integer_percent or 0) // 5))
+        bar = "#" * completed + "-" * (20 - completed)
+        message = f"[INFO] [{bar}] {percent or 'em andamento'}"
         eta = data.get("_eta_str")
         if eta:
             message += f" | restante: {eta.strip()}"
