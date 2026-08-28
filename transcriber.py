@@ -116,6 +116,7 @@ def transcribe_file(
     pipeline_factory=None,
     print_fn=print,
     settings: AppSettings | None = None,
+    cuda_detector=cuda_available,
 ) -> tuple[Path, ...]:
     settings = settings or DEFAULT_SETTINGS
     configure_nvidia_dlls()
@@ -126,16 +127,28 @@ def transcribe_file(
         model_factory = model_factory or WhisperModel
         pipeline_factory = pipeline_factory or BatchedInferencePipeline
 
-    def configured_factory(_name, **options):
-        return model_factory(settings.model, **options)
+    def transcribe_on(device: str):
+        model = model_factory(settings.model, device=device, compute_type="int8")
+        pipeline = pipeline_factory(model=model)
+        segments, _ = pipeline.transcribe(
+            str(media_path),
+            language=settings.language,
+            batch_size=settings.batch_size,
+        )
+        return list(segments)
 
-    model = create_model(configured_factory, print_fn)
-    pipeline = pipeline_factory(model=model)
-    segments, _ = pipeline.transcribe(
-        str(media_path),
-        language=settings.language,
-        batch_size=settings.batch_size,
-    )
+    if cuda_detector():
+        try:
+            segments = transcribe_on("cuda")
+        except Exception as cuda_error:
+            print_fn(
+                f"GPU indisponível ({cuda_error}). Continuando pela CPU; "
+                "isso pode ser mais lento."
+            )
+            segments = transcribe_on("cpu")
+    else:
+        segments = transcribe_on("cpu")
+
     return write_transcripts(
         segments,
         media_path,
