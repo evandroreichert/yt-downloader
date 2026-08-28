@@ -1,7 +1,12 @@
 import os
+import site
 from pathlib import Path
 
 from settings import AppSettings, DEFAULT_SETTINGS
+
+
+_DLL_DIRECTORY_HANDLES = []
+_CONFIGURED_DLL_DIRS = set()
 
 
 def normalize_media_path(raw: str) -> Path:
@@ -70,22 +75,47 @@ def write_transcripts(
     return outputs
 
 
-def configure_nvidia_dlls() -> None:
+def configure_nvidia_dlls(
+    user_site: Path | None = None,
+    add_dll_directory=None,
+) -> tuple[Path, ...]:
+    roots = []
     try:
         import nvidia
+        roots.extend(Path(path) for path in nvidia.__path__)
     except ImportError:
-        return
+        pass
 
-    nvidia_root = Path(nvidia.__path__[0]).parent / "nvidia"
-    for directory, _, filenames in os.walk(nvidia_root):
-        if "bin" not in Path(directory).parts:
-            continue
-        if not any(filename.lower().endswith(".dll") for filename in filenames):
-            continue
+    user_site = user_site or Path(site.getusersitepackages())
+    roots.append(Path(user_site) / "nvidia")
+    add_dll_directory = add_dll_directory or getattr(
+        os, "add_dll_directory", None
+    )
 
-        if hasattr(os, "add_dll_directory"):
-            os.add_dll_directory(directory)
-        os.environ["PATH"] = directory + os.pathsep + os.environ.get("PATH", "")
+    configured = []
+    for root in dict.fromkeys(roots):
+        for directory, _, filenames in os.walk(root):
+            directory_path = Path(directory)
+            if "bin" not in directory_path.parts:
+                continue
+            if not any(
+                filename.lower().endswith(".dll") for filename in filenames
+            ):
+                continue
+
+            configured.append(directory_path)
+            directory_text = str(directory_path)
+            if directory_text in _CONFIGURED_DLL_DIRS:
+                continue
+            if add_dll_directory is not None:
+                _DLL_DIRECTORY_HANDLES.append(
+                    add_dll_directory(directory_text)
+                )
+            os.environ["PATH"] = (
+                directory_text + os.pathsep + os.environ.get("PATH", "")
+            )
+            _CONFIGURED_DLL_DIRS.add(directory_text)
+    return tuple(configured)
 
 
 def cuda_available() -> bool:
