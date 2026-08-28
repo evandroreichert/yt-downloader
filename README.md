@@ -1,31 +1,36 @@
 # Ferramentas de Mídia
 
-Uma CLI em Python com duas funções:
+CLI para Windows que baixa vídeos/áudios do YouTube e transcreve arquivos com Faster Whisper.
 
-- baixar vídeos do YouTube em MP4 ou extrair o áudio em MP3;
-- transcrever arquivos locais de áudio ou vídeo para TXT.
+## Instalação rápida em outro PC
 
-## Instalação
-
-Abra o PowerShell nesta pasta e instale as dependências no mesmo Python usado para executar a CLI:
+Requer Windows 10 ou 11 com acesso ao `winget` (App Installer da Microsoft Store).
 
 ```powershell
-python -m pip install --upgrade -r requirements.txt
+git clone https://github.com/evandroreichert/yt-downloader.git
+cd yt-downloader
+.\instalar.bat
 ```
 
-O downloader também precisa dos executáveis `ffmpeg` e `ffprobe` disponíveis no `PATH`. Para confirmar:
+Também é possível baixar o ZIP privado pelo GitHub, extrair e abrir `instalar.bat` com duplo clique.
+
+O instalador:
+
+- verifica Python 3.11+, FFmpeg, FFprobe, Node.js 22+ e Git;
+- oferece instalar o que estiver ausente pelo `winget`;
+- cria um ambiente Python isolado em `.venv`;
+- instala todas as dependências;
+- cria `config.json` sem substituir configurações existentes;
+- executa um diagnóstico final.
+
+O instalador não instala nem altera drivers NVIDIA, CUDA ou cuDNN.
+
+## Como usar
+
+Abra `iniciar.bat` com duplo clique ou execute:
 
 ```powershell
-ffmpeg -version
-ffprobe -version
-```
-
-O `faster-whisper` requer Python 3.9 ou mais recente. A execução em GPU exige CUDA 12, cuBLAS e cuDNN 9 compatíveis. Se a GPU não puder ser iniciada, a ferramenta tenta transcrever pela CPU automaticamente.
-
-## Como executar
-
-```powershell
-python cli.py
+.\iniciar.bat
 ```
 
 O menu oferece:
@@ -39,24 +44,83 @@ O menu oferece:
 
 ### Downloads
 
-Cole o link e escolha `1` para MP4 ou `2` para MP3. Os arquivos são gravados na pasta `downloads`, criada automaticamente ao lado da CLI.
+Escolha MP4 ou MP3. Cada vídeo recebe uma pasta própria:
 
-### Transcrições
+```text
+downloads/
+  Título do vídeo [id]/
+    Título do vídeo [id].mp3
+    Título do vídeo [id].txt
+    Título do vídeo [id].srt
+```
 
-Cole o caminho de um arquivo de áudio ou vídeo. Caminhos copiados com aspas também são aceitos. O resultado é salvo ao lado do arquivo original com o mesmo nome e extensão `.txt`.
+A opção 3 baixa o áudio, mantém o MP3 e gera a transcrição automaticamente.
 
-Na primeira transcrição, o modelo `turbo` será baixado automaticamente e poderá levar algum tempo. A transcrição está configurada para português e inclui marcações de tempo.
+### Transcrição
 
-### Baixar e transcrever pelo link
+Cole o caminho de um áudio ou vídeo. Caminhos copiados com aspas são aceitos. Na primeira execução, o modelo Whisper será baixado e poderá levar alguns minutos.
 
-Escolha a opção `3` e cole o link do YouTube. A ferramenta baixa o áudio em MP3, transcreve automaticamente e mantém os arquivos MP3 e TXT juntos na pasta `downloads`.
+A ferramenta usa GPU NVIDIA quando o CTranslate2 consegue acessá-la. Caso contrário, usa CPU automaticamente. CPU funciona sem CUDA, mas é mais lenta.
 
-Se o YouTube responder temporariamente que a página precisa ser recarregada, a ferramenta tenta novamente uma vez. O Node.js instalado é habilitado para os desafios JavaScript atuais do YouTube.
+## Configuração
 
-## Testes
+Edite `config.json` para personalizar:
+
+```json
+{
+  "language": "pt",
+  "model": "turbo",
+  "batch_size": 4,
+  "timestamps": true,
+  "transcript_formats": ["txt", "srt"],
+  "keep_downloaded_audio": true,
+  "technical_logs": true
+}
+```
+
+Modelos aceitos: `tiny`, `base`, `small`, `medium`, `large-v3` e `turbo`. Formatos de transcrição: `txt` e `srt`.
+
+## Atualização
+
+Abra `atualizar.bat`. Ele:
+
+- usa `git pull --ff-only` somente se não houver mudanças locais rastreadas;
+- atualiza o `yt-dlp` e as dependências dentro da `.venv`;
+- preserva downloads e `config.json`;
+- executa o diagnóstico.
+
+Isso é especialmente importante porque o YouTube muda com frequência e versões antigas do `yt-dlp` podem parar de funcionar.
+
+## Diagnóstico
+
+Abra `diagnostico.bat` para conferir versões, imports, FFmpeg, Node, integridade dos pacotes e disponibilidade CUDA.
+
+Logs técnicos ficam em `logs/media-tools.log` quando `technical_logs` está ativo.
+
+## Solução de problemas
+
+### Ambiente virtual não encontrado
+
+Execute `instalar.bat` novamente. O processo é idempotente e preserva seus arquivos.
+
+### YouTube pede para recarregar a página
+
+Execute `atualizar.bat`. A ferramenta também tenta novamente uma vez automaticamente e usa Node.js para os desafios JavaScript atuais.
+
+### GPU indisponível
+
+Isso não impede o uso: a transcrição continua pela CPU. Para GPU, instale fora deste projeto drivers NVIDIA e bibliotecas CUDA 12/cuBLAS/cuDNN 9 compatíveis.
+
+### Configuração inválida
+
+Compare `config.json` com `config.example.json`. A mensagem de erro informa o campo incorreto.
+
+## Desenvolvimento e testes
 
 ```powershell
-python -m unittest discover -v
+.\.venv\Scripts\python.exe -m unittest discover -v
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install.ps1 -CheckOnly
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\diagnose.ps1 -CheckOnly
 ```
 
 Baixe somente conteúdo que seja seu, esteja em domínio público ou para o qual você tenha autorização.

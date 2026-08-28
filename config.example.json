@@ -1,0 +1,9 @@
+{
+  "language": "pt",
+  "model": "turbo",
+  "batch_size": 4,
+  "timestamps": true,
+  "transcript_formats": ["txt", "srt"],
+  "keep_downloaded_audio": true,
+  "technical_logs": true
+}

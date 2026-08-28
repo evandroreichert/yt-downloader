@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import Any
 
+from progress import DownloadProgress
+
 
 def _youtube_requested_reload(error: Exception) -> bool:
     return "page needs to be reloaded" in str(error).lower()
@@ -16,12 +18,32 @@ def normalize_format(choice: str) -> str:
         ) from exc
 
 
-def build_options(media_format: str, output_dir: Path) -> dict[str, Any]:
+def video_output_template(output_dir: Path) -> str:
+    video_name = "%(title)s [%(id)s]"
+    return str(output_dir / video_name / f"{video_name}.%(ext)s")
+
+
+def build_options(
+    media_format: str,
+    output_dir: Path,
+    progress_hook=None,
+    logger=None,
+) -> dict[str, Any]:
     options: dict[str, Any] = {
-        "outtmpl": str(output_dir / "%(title)s [%(id)s].%(ext)s"),
+        "outtmpl": video_output_template(output_dir),
         "noplaylist": True,
         "js_runtimes": {"node": {}},
     }
+    if progress_hook is not None:
+        options.update(
+            {
+                "progress_hooks": [progress_hook],
+                "quiet": True,
+                "no_warnings": True,
+            }
+        )
+    if logger is not None:
+        options["logger"] = logger
 
     if media_format == "mp4":
         return options | {
@@ -52,6 +74,8 @@ def download(
     media_format: str,
     output_dir: Path,
     ydl_class=None,
+    progress_hook=None,
+    logger=None,
 ) -> None:
     clean_url = url.strip()
     if not clean_url:
@@ -65,7 +89,9 @@ def download(
     output_dir.mkdir(parents=True, exist_ok=True)
     for attempt in range(2):
         try:
-            with ydl_class(build_options(media_format, output_dir)) as ydl:
+            with ydl_class(
+                build_options(media_format, output_dir, progress_hook, logger)
+            ) as ydl:
                 ydl.download([clean_url])
             return
         except Exception as exc:
@@ -73,7 +99,13 @@ def download(
                 raise
 
 
-def download_audio(url: str, output_dir: Path, ydl_class=None) -> Path:
+def download_audio(
+    url: str,
+    output_dir: Path,
+    ydl_class=None,
+    progress_hook=None,
+    logger=None,
+) -> Path:
     clean_url = url.strip()
     if not clean_url:
         raise ValueError("O link não pode ficar vazio.")
@@ -86,7 +118,9 @@ def download_audio(url: str, output_dir: Path, ydl_class=None) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     for attempt in range(2):
         try:
-            with ydl_class(build_options("mp3", output_dir)) as ydl:
+            with ydl_class(
+                build_options("mp3", output_dir, progress_hook, logger)
+            ) as ydl:
                 info = ydl.extract_info(clean_url, download=True)
                 downloaded_path = Path(ydl.prepare_filename(info))
             return downloaded_path.with_suffix(".mp3")
@@ -101,13 +135,21 @@ def run_downloader(
     input_fn=input,
     print_fn=print,
     downloader=download,
+    output_dir: Path | None = None,
+    logger=None,
 ) -> bool:
     try:
         url = input_fn("Cole o link do YouTube: ").strip()
         choice = input_fn("Escolha o formato (1 = MP4, 2 = MP3): ")
         media_format = normalize_format(choice)
-        output_dir = Path(__file__).resolve().parent / "downloads"
-        downloader(url, media_format, output_dir)
+        output_dir = output_dir or Path(__file__).resolve().parent / "downloads"
+        downloader(
+            url,
+            media_format,
+            output_dir,
+            progress_hook=DownloadProgress(print_fn),
+            logger=logger,
+        )
     except (ValueError, ImportError) as exc:
         print_fn(f"Erro: {exc}")
         return False

@@ -7,6 +7,9 @@ __pycache__/
 venv/
 .env
 .env.*
+config.json
+logs/
+*.tmp
 
 # Downloads, transcrições e modelos locais
 downloads/
