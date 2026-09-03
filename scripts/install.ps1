@@ -1,7 +1,4 @@
-param(
-    [switch]$CheckOnly,
-    [switch]$AssumeYes
-)
+param([switch]$AssumeYes)
 
 . "$PSScriptRoot\common.ps1"
 
@@ -12,18 +9,6 @@ $requirements = @(
     @{ Label = "Node 22+"; Command = "node"; Package = "OpenJS.NodeJS.LTS"; Minimum = "22.0" },
     @{ Label = "Git"; Command = "git"; Package = "Git.Git"; Minimum = $null }
 )
-
-if ($CheckOnly) {
-    Write-Output "CHECK: instalador em modo somente leitura"
-    foreach ($item in $requirements) {
-        $path = Get-ToolPath $item.Command
-        $version = Get-ToolVersion $path
-        $state = if ($path) { "$path | $version" } else { "ausente; instalaria $($item.Package)" }
-        Write-Output "CHECK: $($item.Label): $state"
-    }
-    Write-Output "CHECK: criaria/preservaria .venv e config.json"
-    exit 0
-}
 
 try {
     Write-Step "Verificando pre-requisitos"

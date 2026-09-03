@@ -1,13 +1,4 @@
-param([switch]$CheckOnly)
-
 . "$PSScriptRoot\common.ps1"
-
-if ($CheckOnly) {
-    Write-Output "CHECK: atualizador em modo somente leitura"
-    Write-Output "CHECK: Git usaria pull --ff-only somente em arvore limpa"
-    Write-Output "CHECK: atualizaria pip, yt-dlp[default] e requirements na .venv"
-    exit 0
-}
 
 try {
     Set-Location $Script:ProjectRoot

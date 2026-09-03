@@ -1,15 +1,4 @@
-param([switch]$CheckOnly)
-
 . "$PSScriptRoot\common.ps1"
-
-if ($CheckOnly) {
-    Write-Output "CHECK: diagnostico em modo somente leitura"
-    Write-Output "CHECK: Python da .venv e pacotes"
-    Write-Output "CHECK: FFmpeg e FFprobe"
-    Write-Output "CHECK: Node 22+ e Git"
-    Write-Output "CHECK: CUDA e fallback CPU"
-    exit 0
-}
 
 $failed = $false
 $venvPython = Join-Path $Script:ProjectRoot ".venv\Scripts\python.exe"
